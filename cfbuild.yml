@@ -1,0 +1,86 @@
+name: CFBuild
+
+on:
+  workflow_call:
+
+jobs:
+  build:
+    runs-on: self-hosted
+
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.22'
+          check-latest: true
+
+      - name: Import Secrets
+        id: import-secrets
+        uses: hashicorp/vault-action@v3
+        with:
+          url: ${{ secrets.VAULT_ADDR }}
+          method: approle
+          roleId: ${{ secrets.VAULT_ROLE_ID }}
+          secretId: ${{ secrets.VAULT_SECRET_ID }}
+          secrets: |
+            secret/deployments/gcr secret_file | SERVICE_ACCOUNT_KEY;
+            secret/deployments/github registry | REGISTRY
+
+      - name: Extract live metadata for Docker
+        id: meta_live
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/contentflow-2/production/${{ github.event.repository.name }}
+          tags: |
+            type=schedule
+            type=semver,pattern={{version}}
+            type=raw,value=latest,enable=${{ github.ref == format('refs/heads/{0}', 'master') }}
+
+      - name: Extract staging metadata for Docker
+        id: meta_staging
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/contentflow-2/staging/${{ github.event.repository.name }}
+          tags: |
+            type=schedule
+            type=semver,pattern={{version}}
+            type=raw,value=latest,enable=${{ github.ref == format('refs/heads/{0}', 'master') }}
+
+      - id: "auth"
+        uses: google-github-actions/auth@v2
+        with:
+          credentials_json: ${{ env.SERVICE_ACCOUNT_KEY }}
+
+      - name: "Set up Cloud SDK"
+        uses: google-github-actions/setup-gcloud@v2
+
+      - name: "Use gcloud CLI"
+        run: "gcloud info"
+
+      - name: "Build"
+        run: |
+          /bin/bash ./build.sh
+
+      - name: "rename for staging upload"
+        if: startswith(github.ref, 'refs/heads/master')
+        run: |
+          cp build.tar.gz staging.tar.gz
+
+      - name: 'Upload staging file'
+        if: startsWith(github.ref, 'refs/heads/master')
+        uses: google-github-actions/upload-cloud-storage@v2
+        with:
+          path: 'staging.tar.gz'
+          destination: "contentflow-builds/${{ github.event.repository.name }}"
+
+      - name: "rename for production upload"
+        if: startsWith(github.ref, 'refs/tags/v')
+        run: |
+          cp build.tar.gz production.tar.gz
+
+      - name: 'Upload production file'
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: google-github-actions/upload-cloud-storage@v2
+        with:
+          path: 'production.tar.gz'
+          destination: "contentflow-builds/${{ github.event.repository.name }}"
