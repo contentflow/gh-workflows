@@ -25,6 +25,7 @@ jobs:
           secrets: |
             secret/deployments/gcr secret_file | SERVICE_ACCOUNT_KEY;
             secret/deployments/github registry | REGISTRY
+            secret/deployments/github token | GH_TOKEN
 
       - name: Extract live metadata for Docker
         id: meta_live
@@ -59,6 +60,7 @@ jobs:
 
       - name: "Build"
         run: |
+          git config --global url."https://user:${GH_TOKEN}@github.com".insteadOf "https://github.com"
           /bin/bash ./build.sh
 
       - name: "rename for staging upload"
