@@ -103,6 +103,8 @@ jobs:
         uses: google-github-actions/upload-cloud-storage@v2
         with:
           path: ${{ steps.extract_branch.outputs.tag }}
+          headers: |-
+            content-type: text/plain
           destination: "contentflow-builds/contentflow/${{ github.event.repository.name }}/staging/"
 
       - name: Build and push to production
@@ -116,13 +118,16 @@ jobs:
             ${{ steps.meta_live.outputs.tags }}
 
       - name: "set version for production"
-        if: startswith(github.event.ref, 'refs/heads/v')
+        if: startswith(github.event.ref, 'refs/tags/v')
         run: |
           cp version.txt ${{ steps.extract_branch.outputs.tag }}
           gsutil rm gs://contentflow-builds/contentflow/${{ github.event.repository.name }}/production/* || true
+
       - name: 'Upload staging version file'
-        if: startsWith(github.event.ref, 'refs/heads/v')
+        if: startsWith(github.event.ref, 'refs/tags/v')
         uses: google-github-actions/upload-cloud-storage@v2
         with:
           path: ${{ steps.extract_branch.outputs.tag }}
+          headers: |-
+            content-type: text/plain
           destination: "contentflow-builds/contentflow/${{ github.event.repository.name }}/production/"
