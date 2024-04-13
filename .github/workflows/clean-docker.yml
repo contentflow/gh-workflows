@@ -1,0 +1,17 @@
+name: Cleanup Staging
+
+on:
+  push:
+    branches:
+      - "master"
+  schedule:
+    - cron: '10 22 * * *'
+
+jobs:
+  cleanup:
+    runs-on: self-hosted
+
+    steps:
+      - name: 'Cleanup docker host'
+        run: |
+          docker image prune -f
