@@ -78,6 +78,7 @@ jobs:
         run: |
           cp build.tar.gz staging.tar.gz
           cp version.txt ${{ steps.extract_branch.outputs.tag }}
+          gsutil ls gs://contentflow-builds/contentflow/${{ github.event.repository.name }}/staging/
 
       - name: 'Upload staging file'
         if: startsWith(github.ref, 'refs/heads/master')
@@ -98,6 +99,7 @@ jobs:
         run: |
           cp build.tar.gz production.tar.gz
           cp version.txt ${{ steps.extract_branch.outputs.tag }}
+          gsutil ls gs://contentflow-builds/contentflow/${{ github.event.repository.name }}/production/
 
       - name: 'Upload production file'
         if: startsWith(github.ref, 'refs/tags/v')
