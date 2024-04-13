@@ -72,6 +72,8 @@ jobs:
         with:
           file: Dockerfile
           context: .
+          secrets: |
+            GH_TOKEN=${{ env.GH_TOKEN }}
           push: true
           tags: |
             ${{ steps.meta_staging.outputs.tags }}
