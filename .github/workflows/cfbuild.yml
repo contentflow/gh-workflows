@@ -58,15 +58,24 @@ jobs:
       - name: "Use gcloud CLI"
         run: "gcloud info"
 
+      - name: Extract branch name
+        shell: bash
+        run: |
+          echo "branch=${GITHUB_HEAD_REF:-${GITHUB_REF#refs/heads/}}" >> $GITHUB_OUTPUT
+          echo 'tag=$(git describe --tags || git rev-parse --short HEAD || echo "none")' >> $GITHUB_OUTPUT
+        id: extract_branch
+
       - name: "Build"
         run: |
           git config --global url."https://user:${GH_TOKEN}@github.com".insteadOf "https://github.com"
           /bin/bash ./build.sh
+          echo "${{ steps.extract_branch.outputs.branch }}" > version.txt
 
       - name: "rename for staging upload"
         if: startswith(github.ref, 'refs/heads/master')
         run: |
           cp build.tar.gz staging.tar.gz
+          cp version.txt ${{ steps.extract_branch.outputs.tag }}
 
       - name: 'Upload staging file'
         if: startsWith(github.ref, 'refs/heads/master')
@@ -75,10 +84,18 @@ jobs:
           path: 'staging.tar.gz'
           destination: "contentflow-builds/${{ github.event.repository.name }}"
 
+      - name: 'Upload staging version file'
+        if: startsWith(github.ref, 'refs/heads/master')
+        uses: google-github-actions/upload-cloud-storage@v2
+        with:
+          path: ${{ steps.extract_branch.outputs.tag }}
+          destination: "contentflow-builds/${{ github.event.repository.name }}/staging/"
+
       - name: "rename for production upload"
         if: startsWith(github.ref, 'refs/tags/v')
         run: |
           cp build.tar.gz production.tar.gz
+          cp version.txt ${{ steps.extract_branch.outputs.tag }}
 
       - name: 'Upload production file'
         if: startsWith(github.ref, 'refs/tags/v')
@@ -86,3 +103,10 @@ jobs:
         with:
           path: 'production.tar.gz'
           destination: "contentflow-builds/${{ github.event.repository.name }}"
+
+      - name: 'Upload production version file'
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: google-github-actions/upload-cloud-storage@v2
+        with:
+          path: ${{ steps.extract_branch.outputs.tag }}
+          destination: "contentflow-builds/${{ github.event.repository.name }}/production/"
