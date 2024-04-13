@@ -89,7 +89,7 @@ jobs:
         uses: google-github-actions/upload-cloud-storage@v2
         with:
           path: ${{ steps.extract_branch.outputs.tag }}
-          destination: "contentflow-builds/${GITHUB_REPOSITORY}/staging/"
+          destination: "contentflow-builds/${{ github.event.repository.name }}/staging/"
 
       - name: "rename for production upload"
         if: startsWith(github.ref, 'refs/tags/v')
@@ -109,4 +109,4 @@ jobs:
         uses: google-github-actions/upload-cloud-storage@v2
         with:
           path: ${{ steps.extract_branch.outputs.tag }}
-          destination: "contentflow-builds/${GITHUB_REPOSITORY}/production/"
+          destination: "contentflow-builds/${{ github.event.repository.name }}/production/"
