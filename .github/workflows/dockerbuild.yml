@@ -72,7 +72,7 @@ jobs:
         with:
           file: Dockerfile
           context: .
-          secrets: |
+          build-args: |
             GH_TOKEN=${{ env.GH_TOKEN }}
           push: true
           tags: |
