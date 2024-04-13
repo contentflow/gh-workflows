@@ -57,8 +57,8 @@ jobs:
 
       - name: "Use gcloud CLI"
         run: |
-          "gcloud info"
-          "gsutil ls gs://contentflow-builds/"
+          gcloud info
+          gsutil ls gs://contentflow-builds/
 
       - name: Extract branch name
         shell: bash
