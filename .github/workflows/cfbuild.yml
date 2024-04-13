@@ -77,7 +77,7 @@ jobs:
         run: |
           cp build.tar.gz staging.tar.gz
           cp version.txt ${{ steps.extract_branch.outputs.tag }}
-          gsutil ls gs://contentflow-builds/contentflow/${{ github.event.repository.name }}/staging/
+          gsutil rm gs://contentflow-builds/contentflow/${{ github.event.repository.name }}/staging/* || true
 
       - name: 'Upload staging file'
         if: startsWith(github.ref, 'refs/heads/master')
@@ -91,14 +91,14 @@ jobs:
         uses: google-github-actions/upload-cloud-storage@v2
         with:
           path: ${{ steps.extract_branch.outputs.tag }}
-          destination: "contentflow-builds/${{ github.event.repository.name }}/staging/"
+          destination: "contentflow-builds/contentflow/${{ github.event.repository.name }}/staging/"
 
       - name: "rename for production upload"
         if: startsWith(github.ref, 'refs/tags/v')
         run: |
           cp build.tar.gz production.tar.gz
           cp version.txt ${{ steps.extract_branch.outputs.tag }}
-          gsutil ls gs://contentflow-builds/contentflow/${{ github.event.repository.name }}/production/
+          gsutil rm gs://contentflow-builds/contentflow/${{ github.event.repository.name }}/production/* || true
 
       - name: 'Upload production file'
         if: startsWith(github.ref, 'refs/tags/v')
@@ -112,4 +112,4 @@ jobs:
         uses: google-github-actions/upload-cloud-storage@v2
         with:
           path: ${{ steps.extract_branch.outputs.tag }}
-          destination: "contentflow-builds/${{ github.event.repository.name }}/production/"
+          destination: "contentflow-builds/contentflow/${{ github.event.repository.name }}/production/"
