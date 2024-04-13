@@ -13,6 +13,10 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-tags: true
+          fetch-depth: 0
+
       - uses: actions/setup-go@v5
         with:
           go-version: '1.22'
@@ -39,7 +43,7 @@ jobs:
           tags: |
             type=schedule
             type=semver,pattern={{version}}
-            type=raw,value=latest,enable=${{ github.ref == format('refs/heads/{0}', 'master') }}
+            type=raw,value=latest,enable=${{ github.event.ref == format('refs/heads/{0}', 'master') }}
 
       - name: Extract staging metadata for Docker
         id: meta_staging
@@ -49,7 +53,7 @@ jobs:
           tags: |
             type=schedule
             type=semver,pattern={{version}}
-            type=raw,value=latest,enable=${{ github.ref == format('refs/heads/{0}', 'master') }}
+            type=raw,value=latest,enable=${{ github.event.ref == format('refs/heads/{0}', 'master') }}
 
       - id: auth
         uses: google-github-actions/auth@v2
@@ -61,6 +65,17 @@ jobs:
 
       - name: "Use gcloud CLI"
         run: "gcloud info"
+
+      - name: Extract branch name
+        shell: bash
+        run: |
+          echo "branch=${GITHUB_HEAD_REF:-${GITHUB_REF#refs/heads/}}" >> $GITHUB_OUTPUT
+          echo "tag=$(git describe --tags || git rev-parse --short HEAD || echo 'none')" >> $GITHUB_OUTPUT
+        id: extract_branch
+
+      - name: "Get version"
+        run: |
+          echo "${{ steps.extract_branch.outputs.branch }}" > version.txt
 
       - name: "Docker auth"
         run: |-
@@ -78,6 +93,18 @@ jobs:
           tags: |
             ${{ steps.meta_staging.outputs.tags }}
 
+      - name: "set version for staging"
+        if: startswith(github.event.ref, 'refs/heads/master')
+        run: |
+          cp version.txt ${{ steps.extract_branch.outputs.tag }}
+          gsutil rm gs://contentflow-builds/contentflow/${{ github.event.repository.name }}/staging/* || true
+      - name: 'Upload staging version file'
+        if: startsWith(github.event.ref, 'refs/heads/master')
+        uses: google-github-actions/upload-cloud-storage@v2
+        with:
+          path: ${{ steps.extract_branch.outputs.tag }}
+          destination: "contentflow-builds/contentflow/${{ github.event.repository.name }}/staging/"
+
       - name: Build and push to production
         uses: docker/build-push-action@v5
         if: startsWith(github.event.ref, 'refs/tags/v')
@@ -87,3 +114,15 @@ jobs:
           push: true
           tags: |
             ${{ steps.meta_live.outputs.tags }}
+
+      - name: "set version for production"
+        if: startswith(github.event.ref, 'refs/heads/v')
+        run: |
+          cp version.txt ${{ steps.extract_branch.outputs.tag }}
+          gsutil rm gs://contentflow-builds/contentflow/${{ github.event.repository.name }}/production/* || true
+      - name: 'Upload staging version file'
+        if: startsWith(github.event.ref, 'refs/heads/v')
+        uses: google-github-actions/upload-cloud-storage@v2
+        with:
+          path: ${{ steps.extract_branch.outputs.tag }}
+          destination: "contentflow-builds/contentflow/${{ github.event.repository.name }}/production/"
