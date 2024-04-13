@@ -1,0 +1,87 @@
+name: Build Docker image
+
+on:
+  workflow_call:
+
+jobs:
+  build:
+    runs-on: self-hosted
+
+    permissions:
+      contents: write
+      packages: write
+
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.22'
+          check-latest: true
+
+      - name: Import Secrets
+        id: import-secrets
+        uses: hashicorp/vault-action@v3
+        with:
+          url: ${{ secrets.VAULT_ADDR }}
+          method: approle
+          roleId: ${{ secrets.VAULT_ROLE_ID }}
+          secretId: ${{ secrets.VAULT_SECRET_ID }}
+          secrets: |
+            secret/deployments/gcr secret_file | SERVICE_ACCOUNT_KEY;
+            secret/deployments/github registry | REGISTRY;
+            secret/deployments/github token | GH_TOKEN
+
+      - name: Extract live metadata for Docker
+        id: meta_live
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/contentflow-2/production/${{ github.event.repository.name }}
+          tags: |
+            type=schedule
+            type=semver,pattern={{version}}
+            type=raw,value=latest,enable=${{ github.ref == format('refs/heads/{0}', 'master') }}
+
+      - name: Extract staging metadata for Docker
+        id: meta_staging
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/contentflow-2/staging/${{ github.event.repository.name }}
+          tags: |
+            type=schedule
+            type=semver,pattern={{version}}
+            type=raw,value=latest,enable=${{ github.ref == format('refs/heads/{0}', 'master') }}
+
+      - id: auth
+        uses: google-github-actions/auth@v2
+        with:
+          credentials_json: '${{ env.SERVICE_ACCOUNT_KEY }}'
+
+      - name: "Set up Cloud SDK"
+        uses: google-github-actions/setup-gcloud@v2
+
+      - name: "Use gcloud CLI"
+        run: "gcloud info"
+
+      - name: "Docker auth"
+        run: |-
+          gcloud auth configure-docker ${{ env.REGISTRY }} --quiet
+
+      - name: Build and push to staging
+        uses: docker/build-push-action@v5
+        if: startsWith(github.event.ref, 'refs/heads/master')
+        with:
+          file: Dockerfile
+          context: .
+          push: true
+          tags: |
+            ${{ steps.meta_staging.outputs.tags }}
+
+      - name: Build and push to production
+        uses: docker/build-push-action@v5
+        if: startsWith(github.event.ref, 'refs/tags/v')
+        with:
+          file: Dockerfile
+          context: .
+          push: true
+          tags: |
+            ${{ steps.meta_live.outputs.tags }}
