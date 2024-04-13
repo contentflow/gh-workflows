@@ -62,7 +62,7 @@ jobs:
         shell: bash
         run: |
           echo "branch=${GITHUB_HEAD_REF:-${GITHUB_REF#refs/heads/}}" >> $GITHUB_OUTPUT
-          echo 'tag=$(git describe --tags || git rev-parse --short HEAD || echo "none")' >> $GITHUB_OUTPUT
+          echo "tag=$(git describe --tags || git rev-parse --short HEAD || echo 'none')" >> $GITHUB_OUTPUT
         id: extract_branch
 
       - name: "Build"
