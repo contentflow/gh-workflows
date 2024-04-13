@@ -62,7 +62,7 @@ jobs:
       - name: Extract branch name
         shell: bash
         run: |
-          git describe --tags
+          git describe
           git rev-parse --short HEAD
           echo "branch=${GITHUB_HEAD_REF:-${GITHUB_REF#refs/heads/}}" >> $GITHUB_OUTPUT
           echo "tag=$(git describe --tags || git rev-parse --short HEAD || echo 'none')" >> $GITHUB_OUTPUT
