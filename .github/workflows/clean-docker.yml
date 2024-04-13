@@ -1,4 +1,4 @@
-name: Cleanup Staging
+name: Cleanup Docker Host
 
 on:
   push:
