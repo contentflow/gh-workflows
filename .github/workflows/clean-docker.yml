@@ -15,3 +15,15 @@ jobs:
       - name: 'Cleanup docker host'
         run: |
           docker image prune -f
+
+      - name: 'Cleanup build folder'
+        run: |
+          ls -la ./
+          rm -rf ./* || true
+          rm -rf ./.??* || true
+          ls -la ./
+
+      - uses: actions/checkout@v4
+        with:
+          fetch-tags: true
+          fetch-depth: 0
