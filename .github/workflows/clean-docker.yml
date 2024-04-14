@@ -22,8 +22,3 @@ jobs:
           rm -rf ./* || true
           rm -rf ./.??* || true
           ls -la ./
-
-      - uses: actions/checkout@v4
-        with:
-          fetch-tags: true
-          fetch-depth: 0
