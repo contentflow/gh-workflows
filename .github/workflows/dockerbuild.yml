@@ -123,6 +123,11 @@ jobs:
         with:
           file: Dockerfile
           context: .
+          build-args: |
+            VAULT_ADDR=${{ secrets.VAULT_ADDR }}
+            VAULT_ROLE_ID=${{ secrets.VAULT_ROLE_ID }}
+            VAULT_SECRET_ID=${{ secrets.VAULT_SECRET_ID }}
+            GH_TOKEN=${{ env.GH_TOKEN }}
           push: true
           tags: |
             ${{ steps.meta_live.outputs.tags }}
