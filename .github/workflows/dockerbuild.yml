@@ -10,8 +10,6 @@ jobs:
     permissions:
       contents: write
       packages: write
-      attestations: write
-      id-token: write
 
     steps:
       - name: 'Cleanup build folder'
@@ -128,13 +126,6 @@ jobs:
           tags: |
             ${{ steps.meta_staging.outputs.tags }}
             ${{ steps.meta_staging_gh.outputs.tags }}
-
-      - name: Generate artifact attestation
-        uses: actions/attest-build-provenance@v2
-        with:
-          subject-name: ${{ env.GITHUB_REGISTRY }}/${{ env.IMAGE_NAME }}
-          subject-digest: ${{ steps.push.outputs.digest }}
-          push-to-registry: true
 
       - name: "set version for staging"
         if: startswith(github.event.ref, 'refs/heads/master')
