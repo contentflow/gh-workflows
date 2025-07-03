@@ -31,21 +31,17 @@ jobs:
           go-version: '1.24'
           check-latest: true
 
-      - name: Debug Env
-        run: |
-          echo ${{ env.REGISTRY }}
-
       - name: Log in to the Container registry
         uses: docker/login-action@65b78e6e13532edd9afa3aa52ac7964289d1a9c1
         with:
-          registry: ${{ env.REGISTRY }}
+          registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Set Github Registry
         id: gh-registry
         run: |
-          echo "GITHUB_REGISTRY=${{ env.REGISTRY}}" >> $GITHUB_ENV
+          echo "GITHUB_REGISTRY=ghcr.io" >> $GITHUB_ENV
 
       - name: Import Secrets
         id: import-secrets
