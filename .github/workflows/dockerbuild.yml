@@ -111,7 +111,7 @@ jobs:
           gcloud auth configure-docker ${{ env.REGISTRY }} --quiet
 
       - name: Build and push to staging
-        step: push
+        id: push
         uses: docker/build-push-action@v5
         if: startsWith(github.event.ref, 'refs/heads/master')
         with:
