@@ -26,8 +26,20 @@ jobs:
 
       - uses: actions/setup-go@v5
         with:
-          go-version: '1.23'
+          go-version: '1.24'
           check-latest: true
+
+      - name: Log in to the Container registry
+        uses: docker/login-action@65b78e6e13532edd9afa3aa52ac7964289d1a9c1
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Set Github Registry
+        id: gh-registry
+        run: |
+          echo "GITHUB_REGISTRY=${{ env.REGISTRY}}" >> $GITHUB_ENV
 
       - name: Import Secrets
         id: import-secrets
@@ -47,6 +59,16 @@ jobs:
         uses: docker/metadata-action@v5
         with:
           images: ${{ env.REGISTRY }}/contentflow-2/production/${{ github.event.repository.name }}
+          tags: |
+            type=schedule
+            type=semver,pattern={{version}}
+            type=raw,value=latest,enable=${{ github.event.ref == format('refs/heads/{0}', 'master') }}
+
+      - name: Extract staging metadata for Docker on Github
+        id: meta_staging_gh
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.GITHUB_REGISTRY }}/${{ env.IMAGE_NAME }}
           tags: |
             type=schedule
             type=semver,pattern={{version}}
@@ -89,6 +111,7 @@ jobs:
           gcloud auth configure-docker ${{ env.REGISTRY }} --quiet
 
       - name: Build and push to staging
+        step: push
         uses: docker/build-push-action@v5
         if: startsWith(github.event.ref, 'refs/heads/master')
         with:
@@ -102,6 +125,14 @@ jobs:
           push: true
           tags: |
             ${{ steps.meta_staging.outputs.tags }}
+            ${{ steps.meta_staging_gh.outputs.tags }}
+
+      - name: Generate artifact attestation
+        uses: actions/attest-build-provenance@v2
+        with:
+          subject-name: ${{ env.GITHUB_REGISTRY }}/${{ env.IMAGE_NAME}}
+          subject-digest: ${{ steps.push.outputs.digest }}
+          push-to-registry: true
 
       - name: "set version for staging"
         if: startswith(github.event.ref, 'refs/heads/master')
