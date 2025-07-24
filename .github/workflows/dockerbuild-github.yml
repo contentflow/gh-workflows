@@ -87,7 +87,7 @@ jobs:
       - name: Build and push to staging
         id: push
         uses: docker/build-push-action@v5
-        if: startsWith(github.event.ref, 'refs/heads/master')
+        if: startsWith(github.event.ref, 'refs/heads/master') || github.event.inputs.environment == 'staging'
         with:
           file: Dockerfile
           context: .
@@ -116,7 +116,7 @@ jobs:
 
       - name: Build and push to production
         uses: docker/build-push-action@v5
-        if: startsWith(github.event.ref, 'refs/tags/v')
+        if: startsWith(github.event.ref, 'refs/tags/v') || github.event.inputs.environment == 'production'
         with:
           file: Dockerfile
           context: .
