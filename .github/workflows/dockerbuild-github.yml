@@ -61,7 +61,7 @@ jobs:
           tags: |
             type=schedule
             type=semver,pattern={{version}}
-            type=raw,value=latest,enable=${{ github.event.inputs.environment == 'staging' || github.event.ref == format('refs/heads/{0}', 'master') }}
+            type=raw,value=latest,enable=${{ inputs.environment == 'staging' || github.event.ref == format('refs/heads/{0}', 'master') }}
 
       - name: Extract staging metadata for Docker on Github
         id: meta_staging
@@ -71,7 +71,7 @@ jobs:
           tags: |
             type=schedule
             type=semver,pattern={{version}}
-            type=raw,value=latest,enable=${{ github.event.inputs.environment == 'staging' || github.event.ref == format('refs/heads/{0}', 'master') }}
+            type=raw,value=latest,enable=${{ inputs.environment == 'staging' || github.event.ref == format('refs/heads/{0}', 'master') }}
 
       - name: Extract branch name
         shell: bash
