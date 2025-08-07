@@ -1,0 +1,100 @@
+name: CFBuild Hetzner
+
+on:
+  workflow_call:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: 'Cleanup build folder'
+        run: |
+          ls -la ./
+          rm -rf ./* || true
+          rm -rf ./.??* || true
+          ls -la ./
+
+      - uses: actions/checkout@v4
+        with:
+          fetch-tags: true
+          fetch-depth: 0
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.23'
+          check-latest: true
+
+      - name: Import Secrets
+        id: import-secrets
+        uses: hashicorp/vault-action@v3
+        with:
+          url: ${{ secrets.VAULT_ADDR }}
+          method: approle
+          roleId: ${{ secrets.VAULT_ROLE_ID }}
+          secretId: ${{ secrets.VAULT_SECRET_ID }}
+          secrets: |
+            secret/deployments/gcr secret_file | SERVICE_ACCOUNT_KEY;
+            secret/deployments/github registry | REGISTRY;
+            secret/deployments/github token | GH_TOKEN
+
+      - name: Import Secrets for Staging
+        id: import-secrets-staging
+        uses: hashicorp/vault-action@v3
+        with:
+          url: ${{ secrets.VAULT_ADDR }}
+          method: approle
+          roleId: ${{ secrets.VAULT_ROLE_ID }}
+          secretId: ${{ secrets.VAULT_SECRET_ID }}
+          secrets: |
+            staging/mgmt/hetzner deployment_bucket_access_key | BUCKET_ACCESS_KEY;
+            staging/mgmt/hetzner deployment_bucket_endpoint | BUCKET_ENDPOINT;
+            staging/mgmt/hetzner deployment_bucket_name | BUCKET_NAME;
+            staging/mgmt/hetzner deployment_bucket_region | BUCKET_REGION;
+            staging/mgmt/hetzner deployment_bucket_secret_key | BUCKET_SECRET_KEY
+
+      - name: Extract live metadata for Docker
+        id: meta_live
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/contentflow-2/production/${{ github.event.repository.name }}
+          tags: |
+            type=schedule
+            type=semver,pattern={{version}}
+            type=raw,value=latest,enable=${{ github.event.ref == format('refs/heads/{0}', 'master') }}
+
+      - name: Extract staging metadata for Docker
+        id: meta_staging
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/contentflow-2/staging/${{ github.event.repository.name }}
+          tags: |
+            type=schedule
+            type=semver,pattern={{version}}
+            type=raw,value=latest,enable=${{ github.event.ref == format('refs/heads/{0}', 'master') }}
+
+      - name: Set up S3cmd
+        uses: s3-actions/s3cmd@v2.0.0
+        with:
+          provider: hcloud
+          region: ${{ env.BUCKET_REGION }}
+          access_key: ${{ env.BUCKET_ACCESS_KEY }}
+          secret_key: ${{ env.BUCKET_SECRET_KEY }}
+
+      - name: Extract branch name
+        shell: bash
+        run: |
+          echo "branch=${GITHUB_HEAD_REF:-${GITHUB_REF#refs/heads/}}" >> $GITHUB_OUTPUT
+          echo "tag=$(git describe --tags || git rev-parse --short HEAD || echo 'none')" >> $GITHUB_OUTPUT
+        id: extract_branch
+
+      - name: "Build"
+        run: |
+          git config --global url."https://user:${GH_TOKEN}@github.com".insteadOf "https://github.com"
+          /bin/bash ./build.sh
+          echo "${{ steps.extract_branch.outputs.branch }}" > version.txt
+
+      - name: 'Upload files'
+        run: |
+          s3cmd put build.tar.gz s3://${{ env.BUCKET_NAME }}/contentflow-builds/${{ github.event.repository.name }}/
+          s3cmd put version.txt s3://${{ env.BUCKET_NAME }}/contentflow-builds/${{ github.event.repository.name }}/
