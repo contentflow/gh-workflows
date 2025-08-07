@@ -22,7 +22,7 @@ jobs:
 
       - uses: actions/setup-go@v5
         with:
-          go-version: '1.23'
+          go-version: '1.24'
           check-latest: true
 
       - name: Import Secrets
@@ -74,7 +74,7 @@ jobs:
             type=raw,value=latest,enable=${{ github.event.ref == format('refs/heads/{0}', 'master') }}
 
       - name: Set up S3cmd
-        uses: s3-actions/s3cmd@v2.0.0
+        uses: mthie/s3cmd@main
         with:
           provider: hcloud
           region: ${{ env.BUCKET_REGION }}
