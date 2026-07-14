@@ -53,6 +53,21 @@ jobs:
             staging/mgmt/hetzner deployment_bucket_region | BUCKET_REGION;
             staging/mgmt/hetzner deployment_bucket_secret_key | BUCKET_SECRET_KEY
 
+      - name: Import Secrets for Production
+        id: import-secrets-production
+        uses: hashicorp/vault-action@v3
+        with:
+          url: ${{ secrets.VAULT_ADDR }}
+          method: approle
+          roleId: ${{ secrets.VAULT_ROLE_ID }}
+          secretId: ${{ secrets.VAULT_SECRET_ID }}
+          secrets: |
+            secret/mgmt/hetzner deployment_bucket_access_key | BUCKET_ACCESS_KEY;
+            secret/mgmt/hetzner deployment_bucket_endpoint | BUCKET_ENDPOINT;
+            secret/mgmt/hetzner deployment_bucket_name | BUCKET_NAME;
+            secret/mgmt/hetzner deployment_bucket_region | BUCKET_REGION;
+            secret/mgmt/hetzner deployment_bucket_secret_key | BUCKET_SECRET_KEY
+
       - name: Extract live metadata for Docker
         id: meta_live
         uses: docker/metadata-action@v5
