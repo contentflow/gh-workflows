@@ -12,7 +12,7 @@ jobs:
       packages: write
 
     steps:
-      - name: 'Cleanup build folder'
+      - name: "Cleanup build folder"
         run: |
           ls -la ./
           rm -rf ./* || true
@@ -26,7 +26,7 @@ jobs:
 
       - uses: actions/setup-go@v5
         with:
-          go-version: '1.24'
+          go-version: "1.24"
           check-latest: true
 
       - name: Log in to the Container registry
@@ -61,7 +61,7 @@ jobs:
           tags: |
             type=schedule
             type=semver,pattern={{version}}
-            type=raw,value=latest,enable=${{ inputs.environment == 'production' || github.event.ref == format('refs/heads/{0}', 'master') }}
+            type=raw,value=stable,enable=${{ inputs.environment == 'production' || github.event.ref == format('refs/heads/{0}', 'master') }}
 
       - name: Extract staging metadata for Docker on Github
         id: meta_staging
