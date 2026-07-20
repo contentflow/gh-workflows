@@ -114,10 +114,6 @@ jobs:
           echo "tag=$(git describe --tags || git rev-parse --short HEAD || echo 'none')" >> $GITHUB_OUTPUT
         id: extract_branch
 
-      - name: "Get version"
-        run: |
-          echo "${{ steps.extract_branch.outputs.branch }}" > version.txt
-
       - name: Build and push to staging
         id: push
         uses: docker/build-push-action@v5
@@ -161,6 +157,7 @@ jobs:
       - name: "Upload version files for staging"
         if: (github.event.inputs.environment != 'production' && startsWith(github.event.ref, 'refs/heads/master')) || github.event.inputs.environment == 'staging'
         run: |
+          echo "${{ steps.extract_branch.outputs.branch }}" > version.txt
           cp version.txt ${{ steps.extract_branch.outputs.tag }}.txt
           s3cmd rm s3://${{ env.BUCKET_NAME }}/contentflow-builds/${{ github.event.repository.name }}/*.txt || true
           s3cmd put ${{ steps.extract_branch.outputs.tag }}.txt s3://${{ env.BUCKET_NAME }}/contentflow-builds/${{ github.event.repository.name }}/
@@ -177,6 +174,7 @@ jobs:
       - name: "Upload version files for production"
         if: startsWith(github.event.ref, 'refs/tags/v') || github.event.inputs.environment == 'production'
         run: |
+          echo "${{ steps.extract_branch.outputs.branch }}" > version.txt
           cp version.txt ${{ steps.extract_branch.outputs.tag }}.txt
           s3cmd rm s3://${{ env.BUCKET_NAME }}/contentflow-builds/${{ github.event.repository.name }}/*.txt || true
           s3cmd put ${{ steps.extract_branch.outputs.tag }}.txt s3://${{ env.BUCKET_NAME }}/contentflow-builds/${{ github.event.repository.name }}/
