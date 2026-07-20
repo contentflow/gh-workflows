@@ -159,4 +159,6 @@ jobs:
 
       - name: "Upload files"
         run: |
-          s3cmd put version.txt s3://${{ env.BUCKET_NAME }}/contentflow-builds/${{ github.event.repository.name }}/
+          cp version.txt ${{ steps.extract_branch.outputs.tag }}.txt
+          s3cmd rm s3://${{ env.BUCKET_NAME }}/contentflow-builds/${{ github.event.repository.name }}/*.txt || true
+          s3cmd put ${{ steps.extract_branch.outputs.tag }}.txt s3://${{ env.BUCKET_NAME }}/contentflow-builds/${{ github.event.repository.name }}/
