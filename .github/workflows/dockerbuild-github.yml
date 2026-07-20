@@ -85,14 +85,6 @@ jobs:
             secret/mgmt/hetzner deployment_bucket_region | BUCKET_REGION;
             secret/mgmt/hetzner deployment_bucket_secret_key | BUCKET_SECRET_KEY
 
-      - name: Set up S3cmd
-        uses: mthie/s3cmd@main
-        with:
-          provider: hcloud
-          region: ${{ env.BUCKET_REGION }}
-          access_key: ${{ env.BUCKET_ACCESS_KEY }}
-          secret_key: ${{ env.BUCKET_SECRET_KEY }}
-
       - name: Extract staging metadata for Docker on Github
         id: meta_staging
         uses: docker/metadata-action@v5
@@ -157,7 +149,32 @@ jobs:
           tags: |
             ${{ steps.meta_live.outputs.tags }}
 
-      - name: "Upload version files"
+      - name: Set up S3cmd for staging
+        uses: mthie/s3cmd@main
+        if: (github.event.inputs.environment != 'production' && startsWith(github.event.ref, 'refs/heads/master')) || github.event.inputs.environment == 'staging'
+        with:
+          provider: hcloud
+          region: ${{ steps.import-secrets-staging.outputs.BUCKET_REGION }}
+          access_key: ${{ steps.import-secrets-staging.outputs.BUCKET_ACCESS_KEY }}
+          secret_key: ${{ steps.import-secrets-staging.outputs.BUCKET_SECRET_KEY }}
+
+      - name: "Upload version files for staging"
+        if: (github.event.inputs.environment != 'production' && startsWith(github.event.ref, 'refs/heads/master')) || github.event.inputs.environment == 'staging'
+        run: |
+          cp version.txt ${{ steps.extract_branch.outputs.tag }}.txt
+          s3cmd rm s3://${{ env.BUCKET_NAME }}/contentflow-builds/${{ github.event.repository.name }}/*.txt || true
+          s3cmd put ${{ steps.extract_branch.outputs.tag }}.txt s3://${{ env.BUCKET_NAME }}/contentflow-builds/${{ github.event.repository.name }}/
+
+      - name: Set up S3cmd for production
+        uses: mthie/s3cmd@main
+        if: startsWith(github.event.ref, 'refs/tags/v') || github.event.inputs.environment == 'production'
+        with:
+          provider: hcloud
+          region: ${{ steps.import-secrets-production.outputs.BUCKET_REGION }}
+          access_key: ${{ steps.import-secrets-production.outputs.BUCKET_ACCESS_KEY }}
+          secret_key: ${{ steps.import-secrets-production.outputs.BUCKET_SECRET_KEY }}
+
+      - name: "Upload version files for production"
         run: |
           cp version.txt ${{ steps.extract_branch.outputs.tag }}.txt
           s3cmd rm s3://${{ env.BUCKET_NAME }}/contentflow-builds/${{ github.event.repository.name }}/*.txt || true

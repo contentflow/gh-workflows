@@ -91,14 +91,6 @@ jobs:
             type=semver,pattern={{version}}
             type=raw,value=latest,enable=${{ github.event.ref == format('refs/heads/{0}', 'master') }}
 
-      - name: Set up S3cmd
-        uses: mthie/s3cmd@main
-        with:
-          provider: hcloud
-          region: ${{ env.BUCKET_REGION }}
-          access_key: ${{ env.BUCKET_ACCESS_KEY }}
-          secret_key: ${{ env.BUCKET_SECRET_KEY }}
-
       - name: Extract branch name
         shell: bash
         run: |
@@ -112,7 +104,34 @@ jobs:
           /bin/bash ./build.sh
           echo "${{ steps.extract_branch.outputs.branch }}" > version.txt
 
-      - name: "Upload version files"
+      - name: Set up S3cmd for staging
+        uses: mthie/s3cmd@main
+        if: (github.event.inputs.environment != 'production' && startsWith(github.event.ref, 'refs/heads/master')) || github.event.inputs.environment == 'staging'
+        with:
+          provider: hcloud
+          region: ${{ steps.import-secrets-staging.outputs.BUCKET_REGION }}
+          access_key: ${{ steps.import-secrets-staging.outputs.BUCKET_ACCESS_KEY }}
+          secret_key: ${{ steps.import-secrets-staging.outputs.BUCKET_SECRET_KEY }}
+
+      - name: "Upload version files for staging"
+        if: (github.event.inputs.environment != 'production' && startsWith(github.event.ref, 'refs/heads/master')) || github.event.inputs.environment == 'staging'
+        run: |
+          s3cmd put build.tar.gz s3://${{ env.BUCKET_NAME }}/contentflow-builds/${{ github.event.repository.name }}/
+          cp version.txt ${{ steps.extract_branch.outputs.tag }}.txt
+          s3cmd rm s3://${{ env.BUCKET_NAME }}/contentflow-builds/${{ github.event.repository.name }}/*.txt || true
+          s3cmd put ${{ steps.extract_branch.outputs.tag }}.txt s3://${{ env.BUCKET_NAME }}/contentflow-builds/${{ github.event.repository.name }}/
+
+      - name: Set up S3cmd for production
+        uses: mthie/s3cmd@main
+        if: startsWith(github.event.ref, 'refs/tags/v') || github.event.inputs.environment == 'production'
+        with:
+          provider: hcloud
+          region: ${{ steps.import-secrets-production.outputs.BUCKET_REGION }}
+          access_key: ${{ steps.import-secrets-production.outputs.BUCKET_ACCESS_KEY }}
+          secret_key: ${{ steps.import-secrets-production.outputs.BUCKET_SECRET_KEY }}
+
+      - name: "Upload version files for production"
+        if: startsWith(github.event.ref, 'refs/tags/v') || github.event.inputs.environment == 'production'
         run: |
           s3cmd put build.tar.gz s3://${{ env.BUCKET_NAME }}/contentflow-builds/${{ github.event.repository.name }}/
           cp version.txt ${{ steps.extract_branch.outputs.tag }}.txt
