@@ -89,7 +89,7 @@ jobs:
           tags: |
             type=schedule
             type=semver,pattern={{version}}
-            type=raw,value=latest,enable=${{ github.event.ref == format('refs/heads/{0}', 'master') }}
+            type=raw,value=stable,enable=${{ inputs.environment == 'production' || startsWith(github.event.ref, 'refs/tags/v') }}
 
       - name: Extract branch name
         shell: bash
