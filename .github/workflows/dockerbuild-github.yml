@@ -157,7 +157,7 @@ jobs:
           tags: |
             ${{ steps.meta_live.outputs.tags }}
 
-      - name: "Upload files"
+      - name: "Upload version files"
         run: |
           cp version.txt ${{ steps.extract_branch.outputs.tag }}.txt
           s3cmd rm s3://${{ env.BUCKET_NAME }}/contentflow-builds/${{ github.event.repository.name }}/*.txt || true
