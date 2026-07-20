@@ -69,28 +69,6 @@ jobs:
             secret/mgmt/hetzner deployment_bucket_region | BUCKET_REGION;
             secret/mgmt/hetzner deployment_bucket_secret_key | BUCKET_SECRET_KEY
 
-      - name: Extract staging metadata for Docker
-        id: meta_staging
-        uses: docker/metadata-action@v5
-        if: (github.event.inputs.environment != 'production' && startsWith(github.event.ref, 'refs/heads/master')) || github.event.inputs.environment == 'staging'
-        with:
-          images: ${{ env.REGISTRY }}/contentflow-2/staging/${{ github.event.repository.name }}
-          tags: |
-            type=schedule
-            type=semver,pattern={{version}}
-            type=raw,value=latest,enable=${{ github.event.ref == format('refs/heads/{0}', 'master') }}
-
-      - name: Extract production metadata for Docker
-        id: meta_live
-        uses: docker/metadata-action@v5
-        if: startsWith(github.event.ref, 'refs/tags/v') || github.event.inputs.environment == 'production'
-        with:
-          images: ${{ env.REGISTRY }}/contentflow-2/production/${{ github.event.repository.name }}
-          tags: |
-            type=schedule
-            type=semver,pattern={{version}}
-            type=raw,value=stable,enable=${{ inputs.environment == 'production' || startsWith(github.event.ref, 'refs/tags/v') }}
-
       - name: Extract branch name
         shell: bash
         run: |
