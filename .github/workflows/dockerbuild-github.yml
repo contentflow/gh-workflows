@@ -53,25 +53,67 @@ jobs:
             secret/deployments/github registry | REGISTRY;
             secret/deployments/github token | GH_TOKEN
 
-      - name: Extract live metadata for Docker
-        id: meta_live
-        uses: docker/metadata-action@v5
+      - name: Import Secrets for Staging
+        id: import-secrets-staging
+        uses: hashicorp/vault-action@v3
+        if: (github.event.inputs.environment != 'production' && startsWith(github.event.ref, 'refs/heads/master')) || github.event.inputs.environment == 'staging'
         with:
-          images: ${{ env.GITHUB_REGISTRY }}/${{ github.repository }}
-          tags: |
-            type=schedule
-            type=semver,pattern={{version}}
-            type=raw,value=stable,enable=${{ inputs.environment == 'production' || github.event.ref == format('refs/heads/{0}', 'master') }}
+          url: ${{ secrets.VAULT_ADDR }}
+          method: approle
+          roleId: ${{ secrets.VAULT_ROLE_ID }}
+          secretId: ${{ secrets.VAULT_SECRET_ID }}
+          secrets: |
+            staging/mgmt/hetzner deployment_bucket_access_key | BUCKET_ACCESS_KEY;
+            staging/mgmt/hetzner deployment_bucket_endpoint | BUCKET_ENDPOINT;
+            staging/mgmt/hetzner deployment_bucket_name | BUCKET_NAME;
+            staging/mgmt/hetzner deployment_bucket_region | BUCKET_REGION;
+            staging/mgmt/hetzner deployment_bucket_secret_key | BUCKET_SECRET_KEY
+
+      - name: Import Secrets for Production
+        id: import-secrets-production
+        uses: hashicorp/vault-action@v3
+        if: startsWith(github.event.ref, 'refs/tags/v') || github.event.inputs.environment == 'production'
+        with:
+          url: ${{ secrets.VAULT_ADDR }}
+          method: approle
+          roleId: ${{ secrets.VAULT_ROLE_ID }}
+          secretId: ${{ secrets.VAULT_SECRET_ID }}
+          secrets: |
+            secret/mgmt/hetzner deployment_bucket_access_key | BUCKET_ACCESS_KEY;
+            secret/mgmt/hetzner deployment_bucket_endpoint | BUCKET_ENDPOINT;
+            secret/mgmt/hetzner deployment_bucket_name | BUCKET_NAME;
+            secret/mgmt/hetzner deployment_bucket_region | BUCKET_REGION;
+            secret/mgmt/hetzner deployment_bucket_secret_key | BUCKET_SECRET_KEY
+
+      - name: Set up S3cmd
+        uses: mthie/s3cmd@main
+        with:
+          provider: hcloud
+          region: ${{ env.BUCKET_REGION }}
+          access_key: ${{ env.BUCKET_ACCESS_KEY }}
+          secret_key: ${{ env.BUCKET_SECRET_KEY }}
 
       - name: Extract staging metadata for Docker on Github
         id: meta_staging
         uses: docker/metadata-action@v5
+        if: (github.event.inputs.environment != 'production' && startsWith(github.event.ref, 'refs/heads/master')) || github.event.inputs.environment == 'staging'
         with:
           images: ${{ env.GITHUB_REGISTRY }}/${{ github.repository }}
           tags: |
             type=schedule
             type=semver,pattern={{version}}
             type=raw,value=latest,enable=${{ inputs.environment == 'staging' || github.event.ref == format('refs/heads/{0}', 'master') }}
+
+      - name: Extract production metadata for Docker
+        id: meta_live
+        uses: docker/metadata-action@v5
+        if: startsWith(github.event.ref, 'refs/tags/v') || github.event.inputs.environment == 'production'
+        with:
+          images: ${{ env.GITHUB_REGISTRY }}/${{ github.repository }}
+          tags: |
+            type=schedule
+            type=semver,pattern={{version}}
+            type=raw,value=stable,enable=${{ inputs.environment == 'production' || github.event.ref == format('refs/heads/{0}', 'master') }}
 
       - name: Extract branch name
         shell: bash
@@ -87,7 +129,7 @@ jobs:
       - name: Build and push to staging
         id: push
         uses: docker/build-push-action@v5
-        if: startsWith(github.event.ref, 'refs/heads/master') || github.event.inputs.environment == 'staging'
+        if: (github.event.inputs.environment != 'production' && startsWith(github.event.ref, 'refs/heads/master')) || github.event.inputs.environment == 'staging'
         with:
           file: Dockerfile
           context: .
@@ -99,20 +141,6 @@ jobs:
           push: true
           tags: |
             ${{ steps.meta_staging.outputs.tags }}
-
-      #- name: "set version for staging"
-      #  if: startswith(github.event.ref, 'refs/heads/master')
-      #  run: |
-      #    cp version.txt ${{ steps.extract_branch.outputs.tag }}
-      #    gsutil rm gs://contentflow-builds/contentflow/${{ github.event.repository.name }}/staging/* || true
-      #- name: 'Upload staging version file'
-      #  if: startsWith(github.event.ref, 'refs/heads/master')
-      #  uses: google-github-actions/upload-cloud-storage@v2
-      #  with:
-      #    path: ${{ steps.extract_branch.outputs.tag }}
-      #    headers: |-
-      #      content-type: text/plain
-      #    destination: "contentflow-builds/contentflow/${{ github.event.repository.name }}/staging/"
 
       - name: Build and push to production
         uses: docker/build-push-action@v5
@@ -129,17 +157,6 @@ jobs:
           tags: |
             ${{ steps.meta_live.outputs.tags }}
 
-      #- name: "set version for production"
-      #  if: startswith(github.event.ref, 'refs/tags/v')
-      #  run: |
-      #    cp version.txt ${{ steps.extract_branch.outputs.tag }}
-      #    gsutil rm gs://contentflow-builds/contentflow/${{ github.event.repository.name }}/production/* || true
-
-      #- name: 'Upload production version file'
-      #  if: startsWith(github.event.ref, 'refs/tags/v')
-      #  uses: google-github-actions/upload-cloud-storage@v2
-      #  with:
-      #    path: ${{ steps.extract_branch.outputs.tag }}
-      #    headers: |-
-      #      content-type: text/plain
-      #    destination: "contentflow-builds/contentflow/${{ github.event.repository.name }}/production/"
+      - name: "Upload files"
+        run: |
+          s3cmd put version.txt s3://${{ env.BUCKET_NAME }}/contentflow-builds/${{ github.event.repository.name }}/
