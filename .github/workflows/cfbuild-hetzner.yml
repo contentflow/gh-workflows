@@ -8,7 +8,7 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: 'Cleanup build folder'
+      - name: "Cleanup build folder"
         run: |
           ls -la ./
           rm -rf ./* || true
@@ -22,7 +22,7 @@ jobs:
 
       - uses: actions/setup-go@v5
         with:
-          go-version: '1.24'
+          go-version: "1.26"
           check-latest: true
 
       - name: Import Secrets
@@ -34,13 +34,13 @@ jobs:
           roleId: ${{ secrets.VAULT_ROLE_ID }}
           secretId: ${{ secrets.VAULT_SECRET_ID }}
           secrets: |
-            secret/deployments/gcr secret_file | SERVICE_ACCOUNT_KEY;
             secret/deployments/github registry | REGISTRY;
             secret/deployments/github token | GH_TOKEN
 
       - name: Import Secrets for Staging
         id: import-secrets-staging
         uses: hashicorp/vault-action@v3
+        if: startsWith(github.event.ref, 'refs/heads/master') || github.event.inputs.environment == 'staging'
         with:
           url: ${{ secrets.VAULT_ADDR }}
           method: approle
@@ -56,6 +56,7 @@ jobs:
       - name: Import Secrets for Production
         id: import-secrets-production
         uses: hashicorp/vault-action@v3
+        if: startsWith(github.event.ref, 'refs/tags/v') || github.event.inputs.environment == 'production'
         with:
           url: ${{ secrets.VAULT_ADDR }}
           method: approle
@@ -68,21 +69,23 @@ jobs:
             secret/mgmt/hetzner deployment_bucket_region | BUCKET_REGION;
             secret/mgmt/hetzner deployment_bucket_secret_key | BUCKET_SECRET_KEY
 
-      - name: Extract live metadata for Docker
-        id: meta_live
+      - name: Extract staging metadata for Docker
+        id: meta_staging
         uses: docker/metadata-action@v5
+        if: startsWith(github.event.ref, 'refs/heads/master') || github.event.inputs.environment == 'staging'
         with:
-          images: ${{ env.REGISTRY }}/contentflow-2/production/${{ github.event.repository.name }}
+          images: ${{ env.REGISTRY }}/contentflow-2/staging/${{ github.event.repository.name }}
           tags: |
             type=schedule
             type=semver,pattern={{version}}
             type=raw,value=latest,enable=${{ github.event.ref == format('refs/heads/{0}', 'master') }}
 
-      - name: Extract staging metadata for Docker
-        id: meta_staging
+      - name: Extract production metadata for Docker
+        id: meta_live
         uses: docker/metadata-action@v5
+        if: startsWith(github.event.ref, 'refs/tags/v') || github.event.inputs.environment == 'production'
         with:
-          images: ${{ env.REGISTRY }}/contentflow-2/staging/${{ github.event.repository.name }}
+          images: ${{ env.REGISTRY }}/contentflow-2/production/${{ github.event.repository.name }}
           tags: |
             type=schedule
             type=semver,pattern={{version}}
@@ -109,7 +112,7 @@ jobs:
           /bin/bash ./build.sh
           echo "${{ steps.extract_branch.outputs.branch }}" > version.txt
 
-      - name: 'Upload files'
+      - name: "Upload files"
         run: |
           s3cmd put build.tar.gz s3://${{ env.BUCKET_NAME }}/contentflow-builds/${{ github.event.repository.name }}/
           s3cmd put version.txt s3://${{ env.BUCKET_NAME }}/contentflow-builds/${{ github.event.repository.name }}/
