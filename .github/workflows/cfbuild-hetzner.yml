@@ -40,7 +40,7 @@ jobs:
       - name: Import Secrets for Staging
         id: import-secrets-staging
         uses: hashicorp/vault-action@v3
-        if: startsWith(github.event.ref, 'refs/heads/master') || github.event.inputs.environment == 'staging'
+        if: (github.event.inputs.environment != 'production' && startsWith(github.event.ref, 'refs/heads/master')) || github.event.inputs.environment == 'staging'
         with:
           url: ${{ secrets.VAULT_ADDR }}
           method: approle
@@ -72,7 +72,7 @@ jobs:
       - name: Extract staging metadata for Docker
         id: meta_staging
         uses: docker/metadata-action@v5
-        if: startsWith(github.event.ref, 'refs/heads/master') || github.event.inputs.environment == 'staging'
+        if: (github.event.inputs.environment != 'production' && startsWith(github.event.ref, 'refs/heads/master')) || github.event.inputs.environment == 'staging'
         with:
           images: ${{ env.REGISTRY }}/contentflow-2/staging/${{ github.event.repository.name }}
           tags: |
