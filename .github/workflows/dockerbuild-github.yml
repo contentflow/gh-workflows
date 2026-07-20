@@ -175,6 +175,7 @@ jobs:
           secret_key: ${{ steps.import-secrets-production.outputs.BUCKET_SECRET_KEY }}
 
       - name: "Upload version files for production"
+        if: startsWith(github.event.ref, 'refs/tags/v') || github.event.inputs.environment == 'production'
         run: |
           cp version.txt ${{ steps.extract_branch.outputs.tag }}.txt
           s3cmd rm s3://${{ env.BUCKET_NAME }}/contentflow-builds/${{ github.event.repository.name }}/*.txt || true
