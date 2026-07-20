@@ -112,7 +112,9 @@ jobs:
           /bin/bash ./build.sh
           echo "${{ steps.extract_branch.outputs.branch }}" > version.txt
 
-      - name: "Upload files"
+      - name: "Upload version files"
         run: |
           s3cmd put build.tar.gz s3://${{ env.BUCKET_NAME }}/contentflow-builds/${{ github.event.repository.name }}/
-          s3cmd put version.txt s3://${{ env.BUCKET_NAME }}/contentflow-builds/${{ github.event.repository.name }}/
+          cp version.txt ${{ steps.extract_branch.outputs.tag }}.txt
+          s3cmd rm s3://${{ env.BUCKET_NAME }}/contentflow-builds/${{ github.event.repository.name }}/*.txt || true
+          s3cmd put ${{ steps.extract_branch.outputs.tag }}.txt s3://${{ env.BUCKET_NAME }}/contentflow-builds/${{ github.event.repository.name }}/
